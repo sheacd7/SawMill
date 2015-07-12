@@ -1,0 +1,113 @@
+User = cds44@georgetown.edu
+AIP import list = /opt/dg-transfer/data/transfers/export-handles.GU-PROD.2015-06-26_17:42:14.txt
+Importing resource AIPs from list: /opt/dg-transfer/data/transfers/export-handles.GU-PROD.2015-06-26_17:42:14.txt
+depth= 2, aip_10822-7.zip
+Destination parents:
+Owner: 10822.1/0
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-7.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-7.zip', as an Object already exists with this handle.
+depth= 2, aip_10822-761364.zip
+Destination parents:
+Owner: 10822.1/0
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-761364.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-761364.zip', as an Object already exists with this handle.
+depth= 3, aip_10822-761364_10822-761367.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-761364_10822-761367.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-761364_10822-761367.zip', as an Object already exists with this handle.
+depth= 3, aip_10822-761364_10822-761366.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-761364_10822-761366.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-761364_10822-761366.zip', as an Object already exists with this handle.
+depth= 3, aip_10822-761364_10822-761365.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-761364_10822-761365.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-761364_10822-761365.zip', as an Object already exists with this handle.
+depth= 2, aip_10822-710899.zip
+Destination parents:
+Owner: 10822.1/0
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-710899.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-710899.zip', as an Object already exists with this handle.
+depth= 3, aip_10822-710899_10822-712963.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-710899_10822-712963.zip
+
+SKIPPED processing package '/opt/dg-transfer/data/resources/aip_10822-710899_10822-712963.zip', as an Object already exists with this handle.
+depth= 4, aip_10822-710899_10822-712963_10822-760389.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-710899_10822-712963_10822-760389.zip
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 999
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:173)
+	at org.dspace.identifier.IdentifierServiceImpl.register(IdentifierServiceImpl.java:96)
+	at org.dspace.content.InstallItem.restoreItem(InstallItem.java:109)
+	at org.dspace.content.packager.PackageUtils.finishCreateItem(PackageUtils.java:511)
+	at org.dspace.content.packager.AbstractMETSIngester.ingestObject(AbstractMETSIngester.java:516)
+	at org.dspace.content.packager.AbstractMETSIngester.ingest(AbstractMETSIngester.java:234)
+	at org.dspace.app.packager.Packager.ingest(Packager.java:565)
+	at org.dspace.app.packager.Packager.main(Packager.java:427)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:606)
+	at org.dspace.app.launcher.ScriptLauncher.runOneCommand(ScriptLauncher.java:225)
+	at org.dspace.app.launcher.ScriptLauncher.main(ScriptLauncher.java:77)
+Caused by: java.lang.IllegalStateException: Attempted to create a handle which is already in use: 10822/760389
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.createNewIdentifier(VersionedHandleIdentifierProvider.java:460)
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:165)
+	... 13 more
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 999
+depth= 4, aip_10822-710899_10822-712963_10822-760388.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-710899_10822-712963_10822-760388.zip
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 1000
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:173)
+	at org.dspace.identifier.IdentifierServiceImpl.register(IdentifierServiceImpl.java:96)
+	at org.dspace.content.InstallItem.restoreItem(InstallItem.java:109)
+	at org.dspace.content.packager.PackageUtils.finishCreateItem(PackageUtils.java:511)
+	at org.dspace.content.packager.AbstractMETSIngester.ingestObject(AbstractMETSIngester.java:516)
+	at org.dspace.content.packager.AbstractMETSIngester.ingest(AbstractMETSIngester.java:234)
+	at org.dspace.app.packager.Packager.ingest(Packager.java:565)
+	at org.dspace.app.packager.Packager.main(Packager.java:427)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:606)
+	at org.dspace.app.launcher.ScriptLauncher.runOneCommand(ScriptLauncher.java:225)
+	at org.dspace.app.launcher.ScriptLauncher.main(ScriptLauncher.java:77)
+Caused by: java.lang.IllegalStateException: Attempted to create a handle which is already in use: 10822/760388
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.createNewIdentifier(VersionedHandleIdentifierProvider.java:460)
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:165)
+	... 13 more
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 1000
+depth= 4, aip_10822-710899_10822-712963_10822-760387.zip
+
+Ingesting package located at /opt/dg-transfer/data/resources/aip_10822-710899_10822-712963_10822-760387.zip
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 1001
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:173)
+	at org.dspace.identifier.IdentifierServiceImpl.register(IdentifierServiceImpl.java:96)
+	at org.dspace.content.InstallItem.restoreItem(InstallItem.java:109)
+	at org.dspace.content.packager.PackageUtils.finishCreateItem(PackageUtils.java:511)
+	at org.dspace.content.packager.AbstractMETSIngester.ingestObject(AbstractMETSIngester.java:516)
+	at org.dspace.content.packager.AbstractMETSIngester.ingest(AbstractMETSIngester.java:234)
+	at org.dspace.app.packager.Packager.ingest(Packager.java:565)
+	at org.dspace.app.packager.Packager.main(Packager.java:427)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:57)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:606)
+	at org.dspace.app.launcher.ScriptLauncher.runOneCommand(ScriptLauncher.java:225)
+	at org.dspace.app.launcher.ScriptLauncher.main(ScriptLauncher.java:77)
+Caused by: java.lang.IllegalStateException: Attempted to create a handle which is already in use: 10822/760387
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.createNewIdentifier(VersionedHandleIdentifierProvider.java:460)
+	at org.dspace.identifier.VersionedHandleIdentifierProvider.register(VersionedHandleIdentifierProvider.java:165)
+	... 13 more
+java.lang.RuntimeException: Error while attempting to create identifier for Item id: 1001
