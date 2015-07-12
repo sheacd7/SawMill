@@ -6,8 +6,8 @@
 # Author: Colin Shea
 # Created: 2015-06-30
 # TODO:
-#   - rewrite to use arrays instead of temp files
-#   - assemble unique values into reports
+#   - 
+#   - 
 
 scriptname=`basename $0`
 function usage {
