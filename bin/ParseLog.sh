@@ -9,7 +9,7 @@
 #   - rewrite to use arrays instead of temp files
 #   - assemble unique values into reports
 
-scriptname=`basename $0`
+scriptname=$(basename $0)
 function usage {
   echo "Usage: $scriptname -i [log file]"
   echo "Parse a log file."
@@ -65,7 +65,8 @@ IN_FILE="$(basename $LOG_FILE)"
 
 # general form
 # parse log by [$1] with csplit to multiple text files (events)
-cat "${IN_FILE}" | sed '/^$/d' | csplit -s -n 5 -f event- - '/^depth/' '{*}'
+#cat "${IN_FILE}" | sed '/^$/d' | csplit -s -n 5 -f event- - '/^depth/' '{*}'
+sed '/^$/d' ${IN_FILE} | csplit -s -z -n 5 -f event- - '/^depth/' '{*}'
 # for each event
 for event in $( find -name "event-*" | sort ); do
   # split on [$2] into header, message
@@ -73,14 +74,17 @@ for event in $( find -name "event-*" | sort ); do
 done
 
 # - header - same for all events
-for header in $( find -name "event-*-00" | sort ); do
-  echo "${header}"
-done
+#for header in $( find -name "event-*-00" | sort ); do
+#  echo "${header}"
+#done
 
 # - message - not same for all events
 for message in $( find -name "event-*-01" | sort ); do 
   # organize by message type
-  message_type=$( head -1 "${message}" | sed 's/\ .*//' | sed 's/\://' )
+#  message_type=$( head -1 "${message}" | sed 's/\ .*//' | sed 's/\://' )
+  message_type=$(head -1 "${message}")
+  message_type="${message_type%%\ *}"
+  message_type="${message_type//:/}"
   # deal with duplicated message_types
   numlines=$(wc -l "${message}" | awk '{print $1}')
   if [[ "$numlines" -gt "1" && "$(head -1 $message)" == "$(tail -1 $message)" ]]; then
@@ -92,7 +96,9 @@ done
 
 # split each message_type
 for message_type_file in $(find -name "msg-*.txt" | sed 's/\.\///'); do
-  message_type=$(echo "$message_type_file" | sed 's/^msg-//' | sed 's/\.txt$//')
+#  message_type=$(echo "$message_type_file" | sed 's/^msg-//' | sed 's/\.txt$//')
+  message_type=${message_type_file/#msg-/}
+  message_type=${message_type/%.txt/}
   # note: double-quotes needed to expand variable in csplit
   csplit -s -z -n 5 -f ${message_type}- ${message_type_file} "/${message_type}/" '{*}'
   
@@ -104,13 +110,22 @@ for message_type_file in $(find -name "msg-*.txt" | sed 's/\.\///'); do
     # for each diff line, get diff words
     for diff_line_file in $(find -name "${message_detail_file}-*" | sed 's/\.\///'); do
       diff_line_code="$(head -1 ${diff_line_file} )"
-      grep "^<" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-        > ${message_detail_file}-${diff_line_code}-a
-      grep "^>" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-        > ${message_detail_file}-${diff_line_code}-b
+#      grep "^<" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
+#        > ${message_detail_file}-${diff_line_code}-a
+      diff_line_a=$(grep "^<" $diff_line_file)
+      diff_line_a="${diff_line_a/#< /}"
+      read -ra diff_line_a_arr <<< "${diff_line_a//\ /$'\n'}"
 
-      diff ${message_detail_file}-${diff_line_code}-a ${message_detail_file}-${diff_line_code}-b |
+#      grep "^>" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
+#        > ${message_detail_file}-${diff_line_code}-b
+      diff_line_b=$(grep "^>" $diff_line_file)
+      diff_line_b="${diff_line_b/#> /}"
+      read -ra diff_line_b_arr <<< "${diff_line_b//\ /$'\n'}"
+
+      diff <(echo "${diff_line_a_arr[@]}") <(echo "${diff_line_b_arr[@]}") | 
       csplit -s -z -n 2 -f ${message_detail_file}-${diff_line_code}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
+#      diff ${message_detail_file}-${diff_line_code}-a ${message_detail_file}-${diff_line_code}-b |
+#      csplit -s -z -n 2 -f ${message_detail_file}-${diff_line_code}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
       # for each diff word
       for diff_word_file in $(find -name "${message_detail_file}-${diff_line_code}-0*" | sed 's/\.\///'); do
         diff_word_code="$(head -1 ${diff_word_file} )"
