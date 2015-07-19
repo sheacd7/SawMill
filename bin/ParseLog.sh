@@ -7,7 +7,12 @@
 # Created: 2015-06-30
 # TODO:
 #   - rewrite to use arrays instead of temp files
+#     - instead of csplit, use grep to get line numbers, save to array
+
+
 #   - assemble unique values into reports
+#     [message_type]-[message_num]-[line_diff_code]-[word_diff_code]-[a|b]
+
 
 scriptname=$(basename $0)
 function usage {
@@ -129,6 +134,10 @@ for message_type_file in $(find -name "msg-*"); do
   done
 
 done
+
+
+
+
 
 # message_type_file:    msg-[message].txt
 # message_detail_file:  [message]-0000n
