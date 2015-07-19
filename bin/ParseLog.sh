@@ -54,8 +54,8 @@ cp "${LOG_FILE}" "${TEMP_DIR}"/
 cd "${TEMP_DIR}"
 IN_FILE="$(basename $LOG_FILE)"
 
-# csplit options
 # sed '/^$/d' - remove blank lines
+# csplit options
 # -s: silent/quiet mode - don't print file sizes
 # -z: elide empty output files (useful when pattern matches first line) 
 # -n: use n digits in filename (may need to increase to 7)
@@ -65,7 +65,6 @@ IN_FILE="$(basename $LOG_FILE)"
 
 # general form
 # parse log by [$1] with csplit to multiple text files (events)
-#cat "${IN_FILE}" | sed '/^$/d' | csplit -s -n 5 -f event- - '/^depth/' '{*}'
 sed '/^$/d' ${IN_FILE} | csplit -s -z -n 5 -f event- - '/^depth/' '{*}'
 # for each event
 for event in $( find -name "event-*" | sort ); do
@@ -81,7 +80,6 @@ done
 # - message - not same for all events
 for message in $( find -name "event-*-01" | sort ); do 
   # organize by message type
-#  message_type=$( head -1 "${message}" | sed 's/\ .*//' | sed 's/\://' )
   message_type=$(head -1 "${message}")
   message_type="${message_type%%\ *}"
   message_type="${message_type//:/}"
@@ -91,14 +89,12 @@ for message in $( find -name "event-*-01" | sort ); do
     (( numlines-- ))
   fi
   # save all messages of type message_type to the same file
-  head -"$numlines" "${message}" >> msg-"${message_type}".txt
+  head -"$numlines" "${message}" >> msg-"${message_type}"
 done
 
 # split each message_type
-for message_type_file in $(find -name "msg-*.txt" | sed 's/\.\///'); do
-#  message_type=$(echo "$message_type_file" | sed 's/^msg-//' | sed 's/\.txt$//')
-  message_type=${message_type_file/#msg-/}
-  message_type=${message_type/%.txt/}
+for message_type_file in $(find -name "msg-*"); do
+  message_type=${message_type_file/#\.\/msg-/}
   # note: double-quotes needed to expand variable in csplit
   csplit -s -z -n 5 -f ${message_type}- ${message_type_file} "/${message_type}/" '{*}'
   
@@ -110,22 +106,17 @@ for message_type_file in $(find -name "msg-*.txt" | sed 's/\.\///'); do
     # for each diff line, get diff words
     for diff_line_file in $(find -name "${message_detail_file}-*" | sed 's/\.\///'); do
       diff_line_code="$(head -1 ${diff_line_file} )"
-#      grep "^<" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-#        > ${message_detail_file}-${diff_line_code}-a
       diff_line_a=$(grep "^<" $diff_line_file)
       diff_line_a="${diff_line_a/#< /}"
-      read -ra diff_line_a_arr <<< "${diff_line_a//\ /$'\n'}"
+      IFS=' ' read -ra diff_line_a_arr <<< "${diff_line_a}"
 
-#      grep "^>" $diff_line_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-#        > ${message_detail_file}-${diff_line_code}-b
       diff_line_b=$(grep "^>" $diff_line_file)
       diff_line_b="${diff_line_b/#> /}"
-      read -ra diff_line_b_arr <<< "${diff_line_b//\ /$'\n'}"
+      IFS=' ' read -ra diff_line_b_arr <<< "${diff_line_b}"
 
-      diff <(echo "${diff_line_a_arr[@]}") <(echo "${diff_line_b_arr[@]}") | 
+      diff <(printf '%s\n' "${diff_line_a_arr[@]}") <(printf '%s\n' "${diff_line_b_arr[@]}") | 
       csplit -s -z -n 2 -f ${message_detail_file}-${diff_line_code}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
-#      diff ${message_detail_file}-${diff_line_code}-a ${message_detail_file}-${diff_line_code}-b |
-#      csplit -s -z -n 2 -f ${message_detail_file}-${diff_line_code}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
+
       # for each diff word
       for diff_word_file in $(find -name "${message_detail_file}-${diff_line_code}-0*" | sed 's/\.\///'); do
         diff_word_code="$(head -1 ${diff_word_file} )"
@@ -151,7 +142,7 @@ done
 # > value
 
 
-# [message_type]-[message_num]-[diff_num]-[line_num]-[word_num]
+# [message_type]-[message_num]-[line_diff_code]-[word_diff_code]-[a|b]
 
 # build array of unique diff-code patterns
 # 0 - "1c1;16c16"
