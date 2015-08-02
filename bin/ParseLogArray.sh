@@ -112,19 +112,13 @@ messages["${msg_type}"]+="$b_ln"
 for message_type in "${!messages[@]}"; do
   msg_length="${message_type##*_}"
   # for each message n>1, diff with n=1
+  msg_first=${messages[$message_type]%%,*}
   for msg_start in ${messages[$message_type]//,/ }; do
-    diff <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}") \
+    diff <(printf '%s\n' "${arr[@]:$msg_first:$msg_length}") \
          <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}")
-
 
   done
 done
-
-
-  # for each message_type, diff to find which lines vary using #c#
-  for message_detail_file in $(find -name "${message_type}-*" | sed 's/\.\///'); do
-    diff "${message_type}"-00000 "${message_detail_file}" |
-    csplit -s -z -n 2 -f ${message_detail_file}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
 
     # for each diff line, get diff words
     for diff_line_file in $(find -name "${message_detail_file}-*" | sed 's/\.\///'); do
@@ -149,7 +143,6 @@ done
           > ${diff_word_file}-${diff_word_code}-b
       done
     done
-  done
 
 # diff format
 # diff code
