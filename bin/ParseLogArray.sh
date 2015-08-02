@@ -108,18 +108,17 @@ msg_type=$( printf '%s\n' "${!messages[@]}" | grep -F -m 1 "${msg}" )
 messages["${msg_type}"]+="$b_ln"
 
 # for each message type
+# parameter substitution doesn't  work with associative indices
 for message_type in "${!messages[@]}"; do
   msg_length="${message_type##*_}"
   # for each message n>1, diff with n=1
+  for msg_start in ${messages[$message_type]//,/ }; do
+    diff <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}") \
+         <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}")
 
 
+  done
 done
-
-
-
-
-
-
 
 
   # for each message_type, diff to find which lines vary using #c#
