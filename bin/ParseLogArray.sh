@@ -139,14 +139,23 @@ for msg_type in "${!messages[@]}"; do
     start1=$(( ${diff_line_nums[$idx]} + 2 ))
     length=$(( ${msg_bounds[$idx]} - 1 - $start1 ))
     start2=$(( ${msg_bounds[$idx]} + 1 ))
-    echo "$start1, $length, $start2"
+#    echo "$start1, $length, $start2"
     read -a diff_words <<< $( diff \
         <(printf '%s\n' "${diff_lines[@]:$start1:$length}") \
         <(printf '%s\n' "${diff_lines[@]:$start2:$length}") )
     # get word diff codes
+#    printf '%s\n' "${diff_words[@]}"
     declare -a diff_word_nums
     for widx in "${!diff_words[@]}"; do 
-      [[ "${diff_words[$widx]}" =~ ^[0-9]{1,}c[0-9]{1,}$ ]] && diff_word_nums+=($widx)
+      if [[ "${diff_words[$widx]}" =~ ^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$ ]]; then
+        word_span="${diff_words[$widx]%%c*}"
+        word_first="${word_span%%,*}"
+        word_last="${word_span##*,}"
+        # append each word number in diff word span
+        for (( num=$word_first ; num <= $word_last ; num++ )); do
+          diff_word_nums+=($num)
+        done
+     fi
     done
     # append word diff nums to line diff num
     for widx in "${!diff_word_nums[@]}"; do
@@ -191,7 +200,7 @@ done
   # --unchanged-line-format=""
   # --old-line-format=""
   # --new-line-format='%L'
-# diff code
+# diff code: ##c## or ##,##c##,##
 # < value
 # ---
 # > value
