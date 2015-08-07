@@ -115,7 +115,8 @@ for msg_type in "${!messages[@]}"; do
   msg_length="${msg_type##*_}"
   # parse start line indices and save in a new array
   declare -a msg_starts
-  msg_starts=( "${messages[$msg_type]//,/ }" )
+  # quoting here puts everything in one line
+  msg_starts=( ${messages[$msg_type]//,/ } )
 #  read -a msg_starts <<< $(printf '%s\n' ${messages[$msg_type]//,/ } )
   # get diff-code tree of line and word numbers from first 2 messages of each type
   # then use array index and awk to grab the unique fields
@@ -153,17 +154,17 @@ for msg_type in "${!messages[@]}"; do
   unset msg_starts
   unset diff_lines
   unset diff_line_nums
-  
+
 done
 
 # traverse line-word diff code tree
 for msg_type in "${!diff_codes[@]}"; do
   # set start line for each message of this type
   declare -a msg_starts
-  msg_starts=( "${messages[$msg_type]//,/ }" ) 
+  msg_starts=( ${messages[$msg_type]//,/ } ) 
 
   # unpack lines and words
-  codes=( "${diff_codes[$msg_type]//,/ }")
+  codes=( ${diff_codes[$msg_type]//,/ } )
 
   # for each code 
   for code in "${codes[@]}"; do
@@ -179,76 +180,16 @@ done
 
 
 # scratch ======================================================================
-#  read -a diff_line_codes <<< $(printf '%s\n' ${diff_lines[@]} | \
-#    grep "^[0-9]\{1,\}c[0-9]\{1,\}$" )
-  # strip down to just the line numbers
-#  diff_line_nums=("${diff_line_codes[@]%%c*}")
 
-  #  0 | #c#
-  #  1 | <
-  #  2 | first index of left file
-  # 37 | ---
-  # 38 | >
-  # 39 | first index of right file
-  # 74 | #c#
-  #
-  # save diff word indices
-
-  # calculate indices for start/length of each run of word elements
-  # idx[0]=38
-  # offset=diff_line_nums[0]
-  # length[0]=idx[0]-3-offset
-  # 
-  #  2:35;39:35
-  # offset+2:length[0];idx[0]+1:length[0]
-  
-  # idx[1]=112
-  # offset=idx[0]+1+length[0]=74
-  # length[1]=idx[1]-3-offset=35
-  #
-  # 76:35;113:35
-  # offset+2:length[1];idx[1]+1:length[1]
-
-  # get word nums
-#  diff <(printf '%s\n' "${diff_lines[@]:2:35}") \
-#       <(printf '%s\n' "${diff_lines[@]:39:35}")
-
-#  diff <(printf '%s\n' "${diff_lines[@]:76:35}") \
-#       <(printf '%s\n' "${diff_lines[@]:113:35}")
-
-
-  # for each message n>1, diff with n=1
-#  msg_first=${messages[$message_type]%%,*}
-#  for msg_start in ${messages[$message_type]//,/ }; do
-    # --unchanged-line-format=""
-    # --old-line-format=""
-    # --new-line-format='%L'
-
-    # concat to array of message_type-diff_code
-#    diff <(printf '%s\n' "${arr[@]:$msg_first:$msg_length}") \
-#         <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}")
-
-
-# print unique words for each message
-#L1,W17
-#for line in "${msg_starts[@]}"; do 
-#  printf '%s\n' "${arr[$(( $line + 0  ))]}"; 
-#done | awk '{print $17}'  
-#L13,W17
-#for line in "${msg_starts[@]}"; do 
-#  printf '%s\n' "${arr[$(( $line + 12 ))]}"; 
-#done | awk '{print $17}'
-
-#done
-
-
-# ------------------------------------------------------------------------------
-
-# diff format
+# diff formatting
+  # --unchanged-line-format=""
+  # --old-line-format=""
+  # --new-line-format='%L'
 # diff code
 # < value
 # ---
 # > value
+# ------------------------------------------------------------------------------
 
 # Report format
 # message_type, count
