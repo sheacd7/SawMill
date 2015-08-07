@@ -128,15 +128,26 @@ for msg_type in "${!messages[@]}"; do
 
   # get word nums for diff code and midpoint '>'
   declare -a diff_line_nums
+  declare -a diff_line_idcs
   declare -a msg_bounds
   for idx in "${!diff_lines[@]}"; do
-    [[ "${diff_lines[$idx]}" =~ ^[0-9]{1,}c[0-9]{1,}$ ]] && diff_line_nums+=($idx)
+    if [[ "${diff_lines[$idx]}" =~ ^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$ ]]; then
+      echo "${diff_lines[$idx]}"
+      line_span="${diff_lines[$idx]%%c*}"
+      line_first="${line_span%%,*}"
+      line_last="${line_span##*,}"
+      # append each word number in diff line span
+      for (( num=$line_first ; num <= $line_last ; num++ )); do
+        diff_line_nums+=($num)
+      done
+      diff_line_idcs+=($idx)
+    fi
     [[ "${diff_lines[$idx]}" == ">" ]] && msg_bounds+=($idx)
   done
 #  printf '%s\n' "${diff_lines[@]}"
   # for each line diff get word diff
-  for idx in "${!diff_line_nums[@]}"; do 
-    start1=$(( ${diff_line_nums[$idx]} + 2 ))
+  for idx in "${!diff_line_idcs[@]}"; do 
+    start1=$(( ${diff_line_idcs[$idx]} + 2 ))
     length=$(( ${msg_bounds[$idx]} - 1 - $start1 ))
     start2=$(( ${msg_bounds[$idx]} + 1 ))
 #    echo "$start1, $length, $start2"
@@ -148,6 +159,7 @@ for msg_type in "${!messages[@]}"; do
     declare -a diff_word_nums
     for widx in "${!diff_words[@]}"; do 
       if [[ "${diff_words[$widx]}" =~ ^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$ ]]; then
+        echo "${diff_words[$widx]}"
         word_span="${diff_words[$widx]%%c*}"
         word_first="${word_span%%,*}"
         word_last="${word_span##*,}"
@@ -162,16 +174,18 @@ for msg_type in "${!messages[@]}"; do
       diff_codes["${msg_type}"]+="${diff_line_nums[$idx]}W${diff_word_nums[$widx]},"
     done
   done
-  printf '%s\n' "${diff_codes[@]}"
   unset msg_starts
   unset diff_lines
   unset diff_line_nums
+  unset diff_line_idcs
   unset msg_bounds
   unset diff_words 
   unset diff_word_nums
-
 done
-
+for code_key in "${!diff_codes[@]}"; do
+  printf '%s\n' "$code_key"
+  printf '%s\n' "${diff_codes[$code_key]}"
+done
 # traverse line-word diff code tree
 for msg_type in "${!diff_codes[@]}"; do
   # set start line for each message of this type
@@ -188,7 +202,7 @@ for msg_type in "${!diff_codes[@]}"; do
     word="${code##*W}"
     # print every message at this line and word
     for start in "${msg_starts[@]}"; do
-      printf '%s\n' "${arr[$(( $start + $line ))]}" 
+      printf '%s\n' "${arr[$(( $start + $line - 1 ))]}" 
     done | awk -v field=$word '{print $field}' > "$msg_type"."$line"."$word".txt
   done
 done
