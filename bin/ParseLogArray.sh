@@ -136,7 +136,7 @@ for msg_type in "${!messages[@]}"; do
       line_span="${diff_lines[$idx]%%c*}"
       line_first="${line_span%%,*}"
       line_last="${line_span##*,}"
-      # append each word number in diff line span
+      # append each line number in diff line span
       for (( num=$line_first ; num <= $line_last ; num++ )); do
         diff_line_nums+=($num)
       done
