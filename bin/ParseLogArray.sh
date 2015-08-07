@@ -95,11 +95,12 @@ for (( idx=0 ; idx < $(( ${#headers[@]} - 1 )) ; idx++ )); do
   msg_length=$(( $e_ln - $b_ln ))
   # use first word as message type
   msg="${arr[$b_ln]%%\ *}"
-  # concatenate start and end lines of message to message type
+  # add length to message type to disambiguate messages with identical first word
+  # concatenate start line of message to list
   messages["${msg}_${msg_length}"]+="$b_ln,"
 done
 
-# handle last message
+# handle last message (rather than use a conditional test inside loop)
 idx=$(( ${#headers[@]} - 1 ))
 b_ln=${headers[$idx]}
 msg="${arr[$b_ln]%%\ *}"
@@ -107,65 +108,147 @@ msg="${arr[$b_ln]%%\ *}"
 msg_type=$( printf '%s\n' "${!messages[@]}" | grep -F -m 1 "${msg}" )
 messages["${msg_type}"]+="$b_ln"
 
-# for each message type
-# parameter substitution doesn't  work with associative indices
-for message_type in "${!messages[@]}"; do
-  msg_length="${message_type##*_}"
-  # for each message n>1, diff with n=1
-  msg_first=${messages[$message_type]%%,*}
-  for msg_start in ${messages[$message_type]//,/ }; do
-    diff <(printf '%s\n' "${arr[@]:$msg_first:$msg_length}") \
-         <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}")
+# for each message type get diff lines and words
+declare -A diff_codes
+# note: parameter substitution doesn't work with associative indices
+for msg_type in "${!messages[@]}"; do
+  msg_length="${msg_type##*_}"
+  # parse start line indices and save in a new array
+  declare -a msg_starts
+  msg_starts=( "${messages[$msg_type]//,/ }" )
+#  read -a msg_starts <<< $(printf '%s\n' ${messages[$msg_type]//,/ } )
+  # get diff-code tree of line and word numbers from first 2 messages of each type
+  # then use array index and awk to grab the unique fields
+  #  unexpectedly this saves each word as an element instead of each line
+  read -a diff_lines <<< $( diff \
+    <(printf '%s\n' "${arr[@]:${msg_starts[0]}:$msg_length}") \
+    <(printf '%s\n' "${arr[@]:${msg_starts[1]}:$msg_length}") )
 
+  # get word nums for diff code and midpoint '>'
+  declare -a diff_line_nums
+  declare -a msg_bounds
+  for idx in "${!diff_lines[@]}"; do
+    [[ "${diff_lines[$idx]}" =~ ^[0-9]{1,}c[0-9]{1,}$ ]] && diff_line_nums+=($idx)
+    [[ "${diff_lines[$idx]}" == ">" ]] && msg_bounds+=($idx)
+  done
+
+  # for each line diff get word diff
+  for idx in "${!diff_line_nums[@]}"; do 
+    start1=$(( ${diff_line_nums[$idx]} + 2 ))
+    length=$(( ${msg_bounds[$idx]} - 3 - $start1 ))
+    start2=$(( ${msg_bounds[$idx]} + 1 ))
+    read -a diff_words <<< $( diff \
+        <(printf '%s\n' "${diff_lines[@]:$start1:$length}") \
+        <(printf '%s\n' "${diff_lines[@]:$start2:$length}") )
+    # get word diff codes
+    declare -a diff_word_nums
+    for widx in "${!diff_words[@]}"; do 
+      [[ "${diff_words[$widx]}" =~ ^[0-9]{1,}c[0-9]{1,}$ ]] && diff_word_nums+=($widx)
+    done
+    # append word diff nums to line diff num
+    for widx in "${!diff_word_nums[@]}"; do
+      diff_codes["${msg_type}"]+="${diff_line_nums[$idx]}W${diff_word_nums[$widx]},"
+    done
+  done
+  unset msg_starts
+  unset diff_lines
+  unset diff_line_nums
+  
+done
+
+# traverse line-word diff code tree
+for msg_type in "${!diff_codes[@]}"; do
+  # set start line for each message of this type
+  declare -a msg_starts
+  msg_starts=( "${messages[$msg_type]//,/ }" ) 
+
+  # unpack lines and words
+  codes=( "${diff_codes[$msg_type]//,/ }")
+
+  # for each code 
+  for code in "${codes[@]}"; do
+    # parse line and word numbers
+    line="${code%%W*}"
+    word="${code##*W}"
+    # print every message at this line and word
+    for start in "${msg_starts[@]}"; do
+      printf '%s\n' "${arr[$(( $start + $line ))]}" 
+    done | awk -v field=$word '{print $field}' > "$msg_type"."$line"."$word".txt
   done
 done
 
-    # for each diff line, get diff words
-    for diff_line_file in $(find -name "${message_detail_file}-*" | sed 's/\.\///'); do
-      diff_line_code="$(head -1 ${diff_line_file} )"
-      diff_line_a=$(grep "^<" $diff_line_file)
-      diff_line_a="${diff_line_a/#< /}"
-      IFS=' ' read -ra diff_line_a_arr <<< "${diff_line_a}"
 
-      diff_line_b=$(grep "^>" $diff_line_file)
-      diff_line_b="${diff_line_b/#> /}"
-      IFS=' ' read -ra diff_line_b_arr <<< "${diff_line_b}"
+# scratch ======================================================================
+#  read -a diff_line_codes <<< $(printf '%s\n' ${diff_lines[@]} | \
+#    grep "^[0-9]\{1,\}c[0-9]\{1,\}$" )
+  # strip down to just the line numbers
+#  diff_line_nums=("${diff_line_codes[@]%%c*}")
 
-      diff <(printf '%s\n' "${diff_line_a_arr[@]}") <(printf '%s\n' "${diff_line_b_arr[@]}") | 
-      csplit -s -z -n 2 -f ${message_detail_file}-${diff_line_code}- - '/^[0-9][0-9]*c[0-9][0-9]*$/' '{*}'
+  #  0 | #c#
+  #  1 | <
+  #  2 | first index of left file
+  # 37 | ---
+  # 38 | >
+  # 39 | first index of right file
+  # 74 | #c#
+  #
+  # save diff word indices
 
-      # for each diff word
-      for diff_word_file in $(find -name "${message_detail_file}-${diff_line_code}-0*" | sed 's/\.\///'); do
-        diff_word_code="$(head -1 ${diff_word_file} )"
-        grep "^<" $diff_word_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-          > ${diff_word_file}-${diff_word_code}-a
-        grep "^>" $diff_word_file | sed 's/^[<|>]\ //' | sed 's/\ /\n/g' \
-          > ${diff_word_file}-${diff_word_code}-b
-      done
-    done
+  # calculate indices for start/length of each run of word elements
+  # idx[0]=38
+  # offset=diff_line_nums[0]
+  # length[0]=idx[0]-3-offset
+  # 
+  #  2:35;39:35
+  # offset+2:length[0];idx[0]+1:length[0]
+  
+  # idx[1]=112
+  # offset=idx[0]+1+length[0]=74
+  # length[1]=idx[1]-3-offset=35
+  #
+  # 76:35;113:35
+  # offset+2:length[1];idx[1]+1:length[1]
+
+  # get word nums
+#  diff <(printf '%s\n' "${diff_lines[@]:2:35}") \
+#       <(printf '%s\n' "${diff_lines[@]:39:35}")
+
+#  diff <(printf '%s\n' "${diff_lines[@]:76:35}") \
+#       <(printf '%s\n' "${diff_lines[@]:113:35}")
+
+
+  # for each message n>1, diff with n=1
+#  msg_first=${messages[$message_type]%%,*}
+#  for msg_start in ${messages[$message_type]//,/ }; do
+    # --unchanged-line-format=""
+    # --old-line-format=""
+    # --new-line-format='%L'
+
+    # concat to array of message_type-diff_code
+#    diff <(printf '%s\n' "${arr[@]:$msg_first:$msg_length}") \
+#         <(printf '%s\n' "${arr[@]:$msg_start:$msg_length}")
+
+
+# print unique words for each message
+#L1,W17
+#for line in "${msg_starts[@]}"; do 
+#  printf '%s\n' "${arr[$(( $line + 0  ))]}"; 
+#done | awk '{print $17}'  
+#L13,W17
+#for line in "${msg_starts[@]}"; do 
+#  printf '%s\n' "${arr[$(( $line + 12 ))]}"; 
+#done | awk '{print $17}'
+
+#done
+
+
+# ------------------------------------------------------------------------------
 
 # diff format
 # diff code
 # < value
 # ---
 # > value
-
-# [message_type]-[message_num]-[line_diff_code]-[word_diff_code]-[a|b]
-
-# build array of unique diff-code patterns
-# 0 - "1c1;16c16"
-#   for each unique diff-code pattern
-#     compile all diff-lines for each diff code
-#     get list of word #s (field #s) that differ
-#     use awk to print a list of the variable words
-#     compose template from static words with placeholders
-
-
-#       - lines that vary (#c#)
-#         - for each line #
-#           - wdiff (word diff): split each word to separate line
-#           - list of variables for distinct words
-
 
 # Report format
 # message_type, count
