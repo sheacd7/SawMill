@@ -112,6 +112,7 @@ messages["${msg_type}"]+="$b_ln"
 declare -A diff_codes
 # note: parameter substitution doesn't work with associative indices
 for msg_type in "${!messages[@]}"; do
+  echo "$msg_type"
   msg_length="${msg_type##*_}"
   # parse start line indices and save in a new array
   declare -a msg_starts
@@ -132,12 +133,13 @@ for msg_type in "${!messages[@]}"; do
     [[ "${diff_lines[$idx]}" =~ ^[0-9]{1,}c[0-9]{1,}$ ]] && diff_line_nums+=($idx)
     [[ "${diff_lines[$idx]}" == ">" ]] && msg_bounds+=($idx)
   done
-
+#  printf '%s\n' "${diff_lines[@]}"
   # for each line diff get word diff
   for idx in "${!diff_line_nums[@]}"; do 
     start1=$(( ${diff_line_nums[$idx]} + 2 ))
-    length=$(( ${msg_bounds[$idx]} - 3 - $start1 ))
+    length=$(( ${msg_bounds[$idx]} - 1 - $start1 ))
     start2=$(( ${msg_bounds[$idx]} + 1 ))
+    echo "$start1, $length, $start2"
     read -a diff_words <<< $( diff \
         <(printf '%s\n' "${diff_lines[@]:$start1:$length}") \
         <(printf '%s\n' "${diff_lines[@]:$start2:$length}") )
@@ -151,9 +153,13 @@ for msg_type in "${!messages[@]}"; do
       diff_codes["${msg_type}"]+="${diff_line_nums[$idx]}W${diff_word_nums[$widx]},"
     done
   done
+  printf '%s\n' "${diff_codes[@]}"
   unset msg_starts
   unset diff_lines
   unset diff_line_nums
+  unset msg_bounds
+  unset diff_words 
+  unset diff_word_nums
 
 done
 
