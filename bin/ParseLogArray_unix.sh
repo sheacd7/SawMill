@@ -56,14 +56,11 @@ cp "${LOG_FILE}" "${TEMP_DIR}"/
 cd "${TEMP_DIR}"
 IN_FILE="$(basename $LOG_FILE)"
 
-# filesystem-specific special characters (need to tr these in filenames)
-
-
 # general form
 # event seperator
-#   ^depth
+# ^depth
 # event header string
-#   ^Ingesting\ package
+# ^Ingesting\ package
 
 # read file into array, strip blank lines
 # - up-front performance hit, but loading into memory should be faster for 
@@ -139,7 +136,7 @@ for msg_type in "${!messages[@]}"; do
       line_span="${diff_lines[$idx]%%c*}"
       line_first="${line_span%%,*}"
       line_last="${line_span##*,}"
-      # append each line number in diff line span
+      # append each word number in diff line span
       for (( num=$line_first ; num <= $line_last ; num++ )); do
         diff_line_nums+=($num)
       done
@@ -185,12 +182,10 @@ for msg_type in "${!messages[@]}"; do
   unset diff_words 
   unset diff_word_nums
 done
-
 for code_key in "${!diff_codes[@]}"; do
   printf '%s\n' "$code_key"
   printf '%s\n' "${diff_codes[$code_key]}"
 done
-
 # traverse line-word diff code tree
 for msg_type in "${!diff_codes[@]}"; do
   # set start line for each message of this type
