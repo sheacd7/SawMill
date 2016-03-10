@@ -5,12 +5,17 @@
 # Description: Parse an event log file.
 # Author: Colin Shea
 # Created: 2015-06-30
-# TODO:
-#   - rewrite to use arrays instead of temp files
-#     - instead of csplit, use grep to get line numbers, save to array
-#   - assemble unique values into reports
-#     [message_type]-[message_num]-[line_diff_code]-[word_diff_code]-[a|b]
 
+# TODO:
+#   remove "event separator" and "event header string" assumptions about format
+
+#   assemble unique values into reports
+#   [message_type]-[message_num]-[line_diff_code]-[word_diff_code]-[a|b]
+#   readme.md
+
+# DONE:
+#   rewrite to use arrays instead of temp files
+#     instead of csplit, use grep to get line numbers, save to array
 
 scriptname=$(basename $0)
 function usage {
@@ -27,24 +32,13 @@ while [[ $# > 0 ]]; do
   arg="$1"
   case $arg in
     # print help
-    -h|--help)
-    usage
-    exit
-    ;;
+    -h|--help) usage; exit;;
     # log file to parse
-    -i|--log-file)
-    LOG_FILE="$2"
-    shift
-    ;;
+    -i|--log-file) LOG_FILE="$2"; shift;;
     # output report file
-    -o|--report)
-    REPORT_FILE="$2"
-    shift
-    ;;
-    *)
+    -o|--report) REPORT_FILE="$2"; shift;;
     # unknown option
-    echo "Unknown option: $1"
-    ;;
+    *) echo "Unknown option: $1";;
   esac
   shift
 done
@@ -64,6 +58,8 @@ IN_FILE="$(basename $LOG_FILE)"
 #   ^depth
 # event header string
 #   ^Ingesting\ package
+
+
 
 # read file into array, strip blank lines
 # - up-front performance hit, but loading into memory should be faster for 
