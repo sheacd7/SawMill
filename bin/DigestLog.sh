@@ -7,7 +7,12 @@
 # Created: 2015-06-30
 
 # TODO:
-#   remove "event separator" and "event header string" assumptions about format
+#   fix match_string regex to handle internal words
+#   coalesce monoline groups 
+#   get substring position for unique_strings parameter substitution by regex
+#   figure out sensible unique word output formatting
+#   condense numeric lists into ranges
+#   diff within words on [^a-zA-Z0-9]
 
 scriptname=$(basename $0)
 function usage {
@@ -32,7 +37,7 @@ while [[ $# > 0 ]]; do
 done
 
 # set temp filename
-TEMP_FILE="${IN_FILE%%.*}_temp.txt"
+TEMP_FILE="${LOG_FILE%.*}_temp.txt"
 
 # strip blank lines
 if [[ ! -f "${TEMP_FILE}" ]]; then
@@ -57,7 +62,7 @@ declare -a log_first
 # get length of count field
   # calculate num bytes to cut to get exact string as it appears in log
 unique_strings=( "${uniques[@]#????????}" )
-unique_strings=( "${uniques[@]%%[^ 0-9]*}" )
+unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
 #mapfile -t unique_strings < <(printf '%s\n' "${uniques[@]}" | cut -b 8- )
 #mapfile -t unique_counts < <(printf '%s\n' "${uniques[@]}" | cut -b -7 )
 
@@ -81,10 +86,10 @@ done
 declare -A multiline_groups
 for key in "${!count_groups[@]}"; do
 #  printf '%s:\n' "$key" 
-  # sort into order as seen in log using first-match line numbers
+  # sort by first-match line numbers
   mapfile -t ordered_strings < \
   <(for index in ${count_groups[$key]//,/ }; do
-    printf '  %s , %s\n' "${log_first[$index]}" "$index"
+    printf '%s,%s\n' "${log_first[$index]}" "$index"
   done | sort -g)
   # coalesce into discrete groups of continuous runs
   mlg_index=0
@@ -109,7 +114,7 @@ for key in "${!multiline_groups[@]}"; do
   for index in ${multiline_groups[$key]//,/ }; do
     printf '  %s\n' "${unique_strings[$index]}"
   done
-done
+done > "${DIGEST_FILE}"
 
 # group: first index in unique_strings
 #        length/num indices in unique_strings
@@ -118,22 +123,23 @@ declare -A monoline_groups
 declare -A monoline_fields
 diff_regex='^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$'
 # for the low-frequency items
-for ((i=39; i<${#unique_strings[@]}; i++)); do 
+for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++)); do 
   j=$(($i + 1))
   count1="${unique_counts[$i]}"
   string1="${unique_strings[$i]}"
   count2="${unique_counts[$j]}"
   string2="${unique_strings[$j]}"
-# sorting should put similar items near each other
-# diff with next item in frequency class
+  printf '%s\n' "$i"
+  # sorting should put similar items near each other
+  # diff with next item in frequency class
   read -a diff_output <<< $( diff \
     <(printf '%s\n' ${string1} ) \
     <(printf '%s\n' ${string2} ) )
 
-# determine how many/which fields/words are different
-  declare -a diff_word_nums
+  # build array of fields/words that are different
+  diff_word_nums=()
   for idx in "${!diff_output[@]}"; do 
-    # 
+    # only match 'c'hanged words (ignore 'a'dded/'d'eleted)
     if [[ "${diff_output[$idx]}" =~ $diff_regex ]]; then
 #      echo "${diff_output[$idx]}"
       diff_span="${diff_output[$idx]%%c*}"
@@ -143,32 +149,56 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
       for (( num=$diff_first ; num<=$diff_last ; num++ )); do
         diff_word_nums+=($num)
       done
-      # construct new string without diff_words
-      same_words=()
-      IFS=' ' read -r -a same_words <<< ${string1}
-      for num in ${diff_word_nums[@]}; do 
-#        words[$(( $num - 1 ))]='"[^ ]*"'
-        same_words[$(( $num - 1 ))]=""
-      done
-      # save as string to match against other unique lines
-      printf -v match_string '%s ' ${same_words[@]}
-      # if current two strings have some matching words
-      if [[ ! -z "${match_string}" ]]; then
-        # get number of unique strings that match
-        for ((k=$j; k<${unique_strings[@]}; k++)); do
-          if [[ "${unique_strings[$k]}" =~ ${match_string} ]]; then
-
-          fi
-        done
-        monoline_groups["${match_string}"]="${first},${length}"
-        monoline_fields["${match_string}"]="${diff_word_nums[@]}"
-      fi
-#      match_string="$(printf '"%s "' ${words[@]} )"
-#      match_string="${match_string//\"\"/}" # remove ""
-#      match_string="${match_string%\"\ \"}" # remove " " from end
     fi
   done
+  # construct new string without diff_words
+  same_words=()
+  IFS=' ' read -r -a same_words <<< ${string1}
+  for num in ${diff_word_nums[@]}; do 
+  # words[$(( $num - 1 ))]='"[^ ]*"'
+    same_words[$(( $num - 1 ))]=""
+  done
+  # save as string to match against other unique lines
+  printf -v match_string '%s ' ${same_words[@]}
+#  printf '%s\n' "${match_string}"
+
+  # get run length of matching strings from unique_strings
+  length=1
+  # if current two strings have some matching words
+  if [[ "${match_string}" != " " ]]; then
+    for ((k=$j; k<${#unique_strings[@]}; k++)); do
+      if [[ "${unique_strings[$k]}" =~ ${match_string} ]]; then
+        : $((length++))
+      else
+        break
+      fi
+    done
+  else
+    match_string="${string1}"
+    diff_word_nums=()
+  fi
+  printf '%s\n' "${match_string}"
+  monoline_groups["${match_string}"]="${i},${length}"
+  #  monoline_fields["${match_string}"]="${diff_word_nums[@]}"
+  printf -v monoline_fields["${match_string}"] '%s,' "${diff_word_nums[@]}"
+  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%%,}"
+  : $((i += $length - 1 ))
 done
+
+for string in "${!monoline_groups[@]}"; do 
+  first_length="${monoline_groups[${string}]}"
+  first="${first_length%%,*}"
+  length="${first_length##*,}"
+
+  printf '%s:\n' "${length}"
+  printf '  %s\n' "${string}"
+#  printf '  %s\n' "${unique_fields[@]}"
+  printf '%s\n' "${monoline_fields["${string}"]}"
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_fields["${string}"]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
+done >> "${DIGEST_FILE}"
 
 # print each high-frequency group
 # printf '%s\n' "${words}" # group template with placeholders for uniq words
