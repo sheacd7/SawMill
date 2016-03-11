@@ -151,6 +151,7 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++));
       done
     fi
   done
+
   # construct new string without diff_words
   same_words=()
   IFS=' ' read -r -a same_words <<< ${string1}
@@ -160,12 +161,12 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++));
   done
   # save as string to match against other unique lines
   printf -v match_string '%s ' ${same_words[@]}
-#  printf '%s\n' "${match_string}"
+  match_string="${match_string% }"
 
   # get run length of matching strings from unique_strings
   length=1
   # if current two strings have some matching words
-  if [[ "${match_string}" != " " ]]; then
+  if [[ ! -z "${match_string}" ]]; then
     for ((k=$j; k<${#unique_strings[@]}; k++)); do
       if [[ "${unique_strings[$k]}" =~ ${match_string} ]]; then
         : $((length++))
@@ -178,10 +179,11 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++));
     diff_word_nums=()
   fi
   printf '%s\n' "${match_string}"
+
   monoline_groups["${match_string}"]="${i},${length}"
   #  monoline_fields["${match_string}"]="${diff_word_nums[@]}"
   printf -v monoline_fields["${match_string}"] '%s,' "${diff_word_nums[@]}"
-  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%%,}"
+  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%,}"
   : $((i += $length - 1 ))
 done
 
@@ -192,7 +194,6 @@ for string in "${!monoline_groups[@]}"; do
 
   printf '%s:\n' "${length}"
   printf '  %s\n' "${string}"
-#  printf '  %s\n' "${unique_fields[@]}"
   printf '%s\n' "${monoline_fields["${string}"]}"
 #  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
 #    awk -v fields="${monoline_fields["${string}"]}" \
@@ -254,3 +255,25 @@ done >> "${DIGEST_FILE}"
 #    fi
 #  done 
 #   message at line numbers of expected interval represent distinct clumps
+
+
+# log file
+
+# get unique lines
+# "${file]" | sort | uniq -c | sort -r
+# coalesce into multi-line groups
+
+
+# for each line group with unique words
+#   get unique words
+# 915-1147 first-last
+# 915:242  first-length
+
+# mapfile -t unique_words < \
+#   <(printf '%s\n' "${unique_strings[@]:915:232}" | awk '{ print $4 }')
+
+# printf '%s\n' "${unique_words[@]}" | \
+#   sed 's,[^a-zA-Z0-9],\n,g' | \
+#   sort | uniq -c | sort -r
+
+# coalesce into tree based on frequency

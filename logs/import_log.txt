@@ -1,4 +1,4 @@
-User = cds44@georgetown.edu
+User = nemo@georgetown.edu
 AIP import list = /opt/dg-transfer/data/transfers/export-handles.GU-PROD.2015-06-26_17:42:14.txt
 Importing resource AIPs from list: /opt/dg-transfer/data/transfers/export-handles.GU-PROD.2015-06-26_17:42:14.txt
 depth= 2, aip_10822-7.zip
