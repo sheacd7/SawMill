@@ -10,6 +10,7 @@
 #   coalesce monoline groups 
 #   figure out sensible unique word output formatting
 #   condense numeric lists into ranges
+#   condense paths to tree
 #   diff within words on [^a-zA-Z0-9]
 
 # DONE:
