@@ -9,10 +9,12 @@
 # TODO:
 #   fix match_string regex to handle internal words
 #   coalesce monoline groups 
-#   get substring position for unique_strings parameter substitution by regex
 #   figure out sensible unique word output formatting
 #   condense numeric lists into ranges
 #   diff within words on [^a-zA-Z0-9]
+
+# DONE:
+#   get substring position for unique_strings parameter substitution by regex
 
 scriptname=$(basename $0)
 function usage {
@@ -60,12 +62,17 @@ declare -a log_first
 #
 
 # get length of count field
-  # calculate num bytes to cut to get exact string as it appears in log
-unique_strings=( "${uniques[@]#????????}" )
-unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
-#mapfile -t unique_strings < <(printf '%s\n' "${uniques[@]}" | cut -b 8- )
-#mapfile -t unique_counts < <(printf '%s\n' "${uniques[@]}" | cut -b -7 )
-
+# calculate num chars at front from uniq -c formatting (whitespace and count #)
+x="${uniques[0]%%[0-9] *}"
+pos=$(( ${#x} + 2))
+mask=""
+for ((i=0; i<$pos; i++)); do
+  mask="$mask?"
+done
+unique_strings=( "${uniques[@]#$mask}" )
+unique_counts=( "${uniques[@]:0:$pos}" )
+#unique_strings=( "${uniques[@]#????????}" )
+#unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
 
 # for the high-frequency items
 #   coalesce multi-line records that are always together
@@ -258,6 +265,10 @@ done >> "${DIGEST_FILE}"
 
 
 # log file
+# lines [\n]
+# words [\s]
+# elems [^a-zA-Z0-9]
+
 
 # get unique lines
 # "${file]" | sort | uniq -c | sort -r
@@ -270,7 +281,10 @@ done >> "${DIGEST_FILE}"
 # 915:242  first-length
 
 # mapfile -t unique_words < \
-#   <(printf '%s\n' "${unique_strings[@]:915:232}" | awk '{ print $4 }')
+#   <(printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#     awk -v fields="${monoline_fields["${string}"]}" | \
+#       'BEGIN { split(fields, f, ",") }
+#        { for (field in f) {print $f[field]} }')
 
 # printf '%s\n' "${unique_words[@]}" | \
 #   sed 's,[^a-zA-Z0-9],\n,g' | \
