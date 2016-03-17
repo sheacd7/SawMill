@@ -9,11 +9,14 @@
 # TODO:
 #   coalesce monoline groups 
 #   figure out sensible unique word output formatting
+#     try to collate columns of related fields
 #   condense numeric lists into ranges
 #   condense paths to tree
 #   diff within words on [^a-zA-Z0-9]
+#   formalize criterion for splitting between high-freq and low-freq lines
 
 # DONE:
+#   handle literal '[' and ']' in log text (breaking regex match)
 #   calculate substring position for to split strings w/ parameter substitution
 #   fix match_string regex to handle internal words
 
@@ -96,22 +99,22 @@ for key in "${!count_groups[@]}"; do
 #  printf '%s:\n' "$key" 
   # sort by first-match line numbers
   mapfile -t ordered_strings < \
-  <(for index in ${count_groups[$key]//,/ }; do
-    printf '%s,%s\n' "${log_first[$index]}" "$index"
+  <(for idx in ${count_groups[$key]//,/ }; do
+    printf '%s,%s\n' "${log_first[$idx]}" "$idx"
   done | sort -g)
   # coalesce into discrete groups of continuous runs
-  mlg_index=0
+  mlg_idx=0
   mlg_line=0
-  for line_index in "${ordered_strings[@]}"; do
-    line="${line_index%%,*}"
-    index="${line_index##*,}"
+  for line_idx in "${ordered_strings[@]}"; do
+    line="${line_idx%%,*}"
+    idx="${line_idx##*,}"
     # if not part of same contiguous multi-line group
     if [[ $line -ne $(( $mlg_line + 1 )) ]]; then
       # increment multiline group index
-      : $(( mlg_index++ ))
+      : $(( mlg_idx++ ))
     fi
     # append index to multiline group
-    multiline_groups["$key,$mlg_index"]="${multiline_groups[$key,$mlg_index]},$index"
+    multiline_groups["$key,$mlg_idx"]="${multiline_groups[$key,$mlg_idx]},$idx"
     mlg_line=$line 
   done
 done
@@ -119,8 +122,8 @@ done
 # print all multi-line groups
 for key in "${!multiline_groups[@]}"; do
   printf '%s:\n' "$key"
-  for index in ${multiline_groups[$key]//,/ }; do
-    printf '  %s\n' "${unique_strings[$index]}"
+  for idx in ${multiline_groups[$key]//,/ }; do
+    printf '  %s\n' "${unique_strings[$idx]}"
   done
 done > "${DIGEST_FILE}"
 
@@ -131,7 +134,7 @@ declare -A monoline_groups
 declare -A monoline_fields
 diff_regex='^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$'
 # for the low-frequency items
-for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++)); do 
+for ((i=39; i<${#unique_strings[@]}; i++)); do 
   j=$(($i + 1))
   count1="${unique_counts[$i]}"
   string1="${unique_strings[$i]}"
@@ -170,6 +173,10 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do # i<${#unique_strings[@]}; i++));
   done
   # save as string to match against other unique lines
   printf -v match_regex '%s ' ${same_words[@]}
+  # escape any literal '[' or ']' in regex
+  match_regex="${match_regex// \[ / \\[ }"
+  match_regex="${match_regex// \] / \\] }"
+  # remove trailing space
   match_regex="${match_regex% }"
   match_string="${match_regex//"$word_regex"/}"
 
@@ -205,10 +212,10 @@ for string in "${!monoline_groups[@]}"; do
   printf '%s:\n' "${length}"
   printf '  %s\n' "${string}"
 #  printf '%s\n' "${monoline_fields["${string}"]}"
-  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-    awk -v fields="${monoline_fields["${string}"]}" \
-    'BEGIN { split(fields, f, ",") }
-    { for (field in f) {print $f[field]} }' 
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_fields["${string}"]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
 done >> "${DIGEST_FILE}"
 
 # print each high-frequency group
@@ -221,13 +228,17 @@ done >> "${DIGEST_FILE}"
 
 # ==============================================================================
 # Open questions
-# faster to grep or search through pre-loaded array?
+# faster to printf and grep or search through pre-loaded array?
 #   first match or all matches?
 # < <() vs <<< $()
-#
+# is it worth the time to pass through sed to remove blank lines?
+
+
 # useful functions to have
 #   sort array by keys or by values
 #   "grep" pattern in array
+#     pattern can be literal or regex
+#     return indices(line nums), values
 #   given an array of word/field indices, return string with/without those words
 
 
@@ -256,7 +267,7 @@ done >> "${DIGEST_FILE}"
 #  mapfile -t lines2 < \
 #    <(grep -Fn "${h1}" GitHub/SawMill/logs/import_log.txt | cut -d ':' -f 1)
 #  
-#  #   find line numbers where 875-bin messages don't appear at expected interval
+#  # find line numbers where 875-bin messages don't appear at expected interval
 #  offset=0
 #  for ((i=0; i<${#lines1[@]}; i++)); do 
 #    if [[ $(( ${lines1[$i]} + 9)) -ne ${lines2[$(($i - $offset))]} ]]; then 
@@ -268,13 +279,44 @@ done >> "${DIGEST_FILE}"
 
 
 # log file
-# lines [\n]
-# words [\s]
-# elems [^a-zA-Z0-9]
+# hierarchical levels
+#   stanzas    (all lines in stanza are identical)
+#   lines [\n] (all words in line are identical)
+#   words [\s] (all elems in word are identical)
+#   elems [^a-zA-Z0-9]
+
+# at each level
+#   sort, uniq count, sort reverse order
+#   group by count
+
+#   note: lines need to use grep to get position info
+#         words already have position info within lines
+#         elems "       "                       " words
+#   for each count, further group by position
+#     coalesce adjacent elements into same group
+#     split non-adjacent elements into new group
+
+#   coalesce groups into multi-group structures
+#     use line numbers to find consistent intervals for line groups
+#     word/field numbers already known for word groups
+#     lines with unique words ~ multi-line groups with unique intercalated lines
+
+
+# stanza
+#   [stanza id] (line ids)
+#   [stanza id] (count)
+#   [stanza id] ()
+# line 
+#   [line id] (string)
+#   [line id] (diff word nums)
+# word group
+#   [word id] (values)
+
+# group stanzas by positions
 
 
 # get unique lines
-# "${file]" | sort | uniq -c | sort -r
+# "${file}" | sort | uniq -c | sort -r
 # coalesce into multi-line groups
 
 
