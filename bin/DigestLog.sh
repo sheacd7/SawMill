@@ -7,7 +7,11 @@
 # Created: 2015-06-30
 
 # TODO:
-#   coalesce monoline groups 
+#   first pass should save:
+#     unique strings
+#     count of each unique string
+#     line number list of each unique string
+#   coalesce monoline groups with multiline groups
 #   figure out sensible unique word output formatting
 #     try to collate columns of related fields
 #   condense numeric lists into ranges
@@ -35,7 +39,7 @@ while [[ $# > 0 ]]; do
   arg="$1"
   case $arg in
     -h|--help) usage; exit;;               # print help
-    -i|--log-file) LOG_FILE="$2";  shift;; # input log file to parse
+    -i|--log-file)  LOG_FILE="$2"; shift;; # input log file to parse
     -o|--digest) DIGEST_FILE="$2"; shift;; # output digest file
     *) echo "Unknown option: $1";;
   esac
@@ -43,7 +47,9 @@ while [[ $# > 0 ]]; do
 done
 
 # set temp filename
-TEMP_FILE="${LOG_FILE%.*}_temp.txt"
+base_name=$(basename ${LOG_FILE})
+dir_name=$(dirname ${LOG_FILE})
+TEMP_FILE="${dir_name}/${base_name%.*}_temp.txt"
 
 # strip blank lines
 if [[ ! -f "${TEMP_FILE}" ]]; then
@@ -57,11 +63,6 @@ fi
 mapfile -t uniques < <(sort "${TEMP_FILE}" | uniq -c | sort -r )
 #mapfile -t uniques < <( printf '%s\n' "${arr[@]}" | sort | uniq -c | sort -r )
 
-# [count]:(indices of unique lines)
-declare -a count_groups
-# [index in uniques]:(first and second line numbers in log)
-declare -a log_first
-
 # get index of last "high-freq" line
 #
 
@@ -74,57 +75,88 @@ for ((i=0; i<$pos; i++)); do
   mask="$mask?"
 done
 unique_strings=( "${uniques[@]#$mask}" )
+unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
 #unique_counts=( "${uniques[@]:0:$pos}" )
 #unique_strings=( "${uniques[@]#????????}" )
-unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
 
 # for the high-frequency items
 #   coalesce multi-line records that are always together
 #   group by frequency count
 #   grep line number of first match of each line in group
+declare -a count_groups   # [count]:(indices of unique lines)
+declare -a first_line     # [index in uniques]:(first line number in log)
 for ((i=0; i<39; i++)); do
   count="${unique_counts[$i]}"
   string="${unique_strings[$i]}"
   count_groups[$count]="${count_groups[$count]},$i"
 #  log_strings[$i]="${string}"
-  log_first[$i]=$( grep -Fnxm 1 "${string}" "${LOG_FILE}" | cut -d ':' -f 1 )
+  first_line[$i]=$( grep -Fnxm 1 "${string}" "${TEMP_FILE}" | cut -d ':' -f 1 )
 done
 
 # for each count group
-#   save description of each discrete multi-line group
-#     key, multi-line string
-#     key, list of first lines
-declare -A multiline_groups
-for key in "${!count_groups[@]}"; do
-#  printf '%s:\n' "$key" 
-  # sort by first-match line numbers
+#   save description of each contiguous multi-line group
+#     key, indices of unique strings in group
+#     key, count
+#     key, line numbers of first string in file
+#declare -A multiline_groups
+declare -a multiline_string_indcs
+declare -a multiline_group_counts
+declare -a multiline_line_numbers
+mlg_key=0
+for count in "${!count_groups[@]}"; do
+#  multiline_group_counts[$mlg_key]="${count}"
+#  printf '%s:\n' "$count" 
+  # sort by first line num
   mapfile -t ordered_strings < \
-  <(for idx in ${count_groups[$key]//,/ }; do
-    printf '%s,%s\n' "${log_first[$idx]}" "$idx"
+  <(for idx in ${count_groups[$count]//,/ }; do
+    printf '%s,%s\n' "${first_line[$idx]}" "$idx"
   done | sort -g)
-  # coalesce into discrete groups of continuous runs
-  mlg_idx=0
+  # coalesce into groups of continuous runs
+#  mlg_idx=0
   mlg_line=0
   for line_idx in "${ordered_strings[@]}"; do
     line="${line_idx%%,*}"
     idx="${line_idx##*,}"
     # if not part of same contiguous multi-line group
     if [[ $line -ne $(( $mlg_line + 1 )) ]]; then
-      # increment multiline group index
-      : $(( mlg_idx++ ))
+      # increment multiline group index/key
+#      : $(( mlg_idx++ ))
+      : $(( mlg_key++ ))
+      multiline_group_counts[$mlg_key]="${count}"
     fi
     # append index to multiline group
-    multiline_groups["$key,$mlg_idx"]="${multiline_groups[$key,$mlg_idx]},$idx"
+#    multiline_groups["$count,$mlg_idx"]="${multiline_groups[$count,$mlg_idx]},$idx"
+    multiline_string_indcs[$mlg_key]+=",$idx"
     mlg_line=$line 
   done
 done
 
-# print all multi-line groups
-for key in "${!multiline_groups[@]}"; do
-  printf '%s:\n' "$key"
-  for idx in ${multiline_groups[$key]//,/ }; do
+# get list of line numbers for first string in each group
+for mlg_key in "${!multiline_string_indcs[@]}"; do
+  multiline_string_indcs[$mlg_key]="${multiline_string_indcs[$mlg_key]:1}"
+  first_index="${multiline_string_indcs[$mlg_key]%%,*}"
+  first_string="${unique_strings[$first_index]}"
+  multiline_line_numbers[$mlg_key]=$(grep -Fxn "${first_string}" "${TEMP_FILE}" | \
+    cut -d ':' -f 1 | \
+    tr '\n' ',')
+done
+
+## print all multi-line groups
+#for key in "${!multiline_groups[@]}"; do
+#  printf '%s:\n' "$key"
+#  for idx in ${multiline_groups[$key]//,/ }; do
+#    printf '  %s\n' "${unique_strings[$idx]}"
+#  done
+#done > "${DIGEST_FILE}"
+
+# print all multi-line group data
+for key in "${!multiline_group_counts[@]}"; do
+  printf '%s:%s\n' "key"   "${key}"
+  printf '%s:%s\n' "count" "${multiline_group_counts[$key]}"
+  for idx in ${multiline_string_indcs[$key]//,/ }; do
     printf '  %s\n' "${unique_strings[$idx]}"
   done
+  printf '%s\n' "${multiline_line_numbers[$key]}"
 done > "${DIGEST_FILE}"
 
 # group: first index in unique_strings
@@ -211,12 +243,16 @@ for string in "${!monoline_groups[@]}"; do
 
   printf '%s:\n' "${length}"
   printf '  %s\n' "${string}"
-#  printf '%s\n' "${monoline_fields["${string}"]}"
-#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-#    awk -v fields="${monoline_fields["${string}"]}" \
-#    'BEGIN { split(fields, f, ",") }
-#    { for (field in f) {print $f[field]} }' 
+  printf '%s\n' "${monoline_fields["${string}"]}"
+  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+    awk -v fields="${monoline_fields["${string}"]}" \
+    'BEGIN { split(fields, f, ",") }
+    { for (field in f) {print $f[field]} }' 
 done >> "${DIGEST_FILE}"
+
+# get all line numbers for monoline groups
+#for mlg in 
+
 
 # print each high-frequency group
 # printf '%s\n' "${words}" # group template with placeholders for uniq words
