@@ -159,20 +159,30 @@ for key in "${!multiline_group_counts[@]}"; do
   printf '%s\n' "${multiline_line_numbers[$key]}"
 done > "${DIGEST_FILE}"
 
-# group: first index in unique_strings
-#        length/num indices in unique_strings
-#        field nums for unique words in string
-declare -A monoline_groups
-declare -A monoline_fields
+#declare -A monoline_groups
+#declare -A monoline_fields
+#   save description of each mono-line group
+#     key, indices of unique strings in group
+#     key, count (number of identical lines)
+#     key, line numbers of each group in file
+#     key, field numbers (words) that differ within group
+#     key, string (words) that are the same within group
+declare -a monoline_string_indcs
+declare -a monoline_group_counts
+declare -a monoline_line_numbers
+declare -a monoline_field_nums
+declare -a monoline_strings
 diff_regex='^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$'
 # for the low-frequency items
+mlg_key=0
 for ((i=39; i<${#unique_strings[@]}; i++)); do 
+  : $(( mlg_key++ ))
   j=$(($i + 1))
   count1="${unique_counts[$i]}"
   string1="${unique_strings[$i]}"
-  count2="${unique_counts[$j]}"
+#  count2="${unique_counts[$j]}"
   string2="${unique_strings[$j]}"
-  printf '%s\n' "$i"
+#  printf '%s\n' "$i"
   # sorting should put similar items near each other
   # diff with next item in frequency class
   read -a diff_output <<< $( diff \
@@ -229,29 +239,48 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
   fi
   printf '%s\n' "${match_string}"
 
-  monoline_groups["${match_string}"]="${i},${length}"
+#  monoline_groups["${match_string}"]="${i},${length}"
+  monoline_string_indcs[$mlg_key]="${i},${length}"
+  monoline_group_counts[$mlg_key]="${count1}"
+  monoline_strings[$mlg_key]="${match_string}"
   #  monoline_fields["${match_regex}"]="${diff_word_nums[@]}"
-  printf -v monoline_fields["${match_string}"] '%s,' "${diff_word_nums[@]}"
-  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%,}"
+#  printf -v monoline_fields["${match_string}"] '%s,' "${diff_word_nums[@]}"
+#  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%,}"
+  printf -v monoline_field_nums[$mlg_key] '%s,' "${diff_word_nums[@]}"
+  monoline_field_nums[$mlg_key]="${monoline_field_nums[$mlg_key]%,}"
   : $((i += $length - 1 ))
 done
 
-for string in "${!monoline_groups[@]}"; do 
-  first_length="${monoline_groups[${string}]}"
+#for string in "${!monoline_groups[@]}"; do 
+#  first_length="${monoline_groups[${string}]}"
+#  first="${first_length%%,*}"
+#  length="${first_length##*,}"
+#
+#  printf '%s:\n' "${length}"
+#  printf '  %s\n' "${string}"
+#  printf '%s\n' "${monoline_fields["${string}"]}"
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_fields["${string}"]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
+#done >> "${DIGEST_FILE}"
+
+for key in "${!monoline_group_counts[@]}"; do 
+  printf '%s:%s\n' "key"   "${key}"
+  printf '%s:%s\n' "count" "${monoline_group_counts[$key]}"
+
+  first_length="${monoline_string_indcs[$key]}"
   first="${first_length%%,*}"
   length="${first_length##*,}"
+  printf '%s:%s\n' "matches" "${length}"
+#  printf '  %s\n' "${unique_strings[$first]}"
+  printf '  %s\n' "${monoline_strings[$key]}"
 
-  printf '%s:\n' "${length}"
-  printf '  %s\n' "${string}"
-  printf '%s\n' "${monoline_fields["${string}"]}"
   printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-    awk -v fields="${monoline_fields["${string}"]}" \
+    awk -v fields="${monoline_field_nums[$key]}" \
     'BEGIN { split(fields, f, ",") }
     { for (field in f) {print $f[field]} }' 
 done >> "${DIGEST_FILE}"
-
-# get all line numbers for monoline groups
-#for mlg in 
 
 
 # print each high-frequency group
