@@ -76,6 +76,7 @@ for ((i=0; i<$pos; i++)); do
 done
 unique_strings=( "${uniques[@]#$mask}" )
 unique_counts=( "${uniques[@]%%[^ 0-9]*}" )
+unique_counts=( "${unique_counts[@]// /}" )
 #unique_counts=( "${uniques[@]:0:$pos}" )
 #unique_strings=( "${uniques[@]#????????}" )
 
@@ -234,6 +235,7 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
       fi
     done
   else
+    match_regex="${string1}"
     match_string="${string1}"
     diff_word_nums=()
   fi
@@ -248,6 +250,9 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
 #  monoline_fields["${match_string}"]="${monoline_fields["${match_string}"]%,}"
   printf -v monoline_field_nums[$mlg_key] '%s,' "${diff_word_nums[@]}"
   monoline_field_nums[$mlg_key]="${monoline_field_nums[$mlg_key]%,}"
+  monoline_line_numbers[$mlg_key]=$(grep -Exn "${match_regex}" "${TEMP_FILE}" | \
+  cut -d ':' -f 1 | \
+  tr '\n' ',')
   : $((i += $length - 1 ))
 done
 
@@ -275,6 +280,8 @@ for key in "${!monoline_group_counts[@]}"; do
   printf '%s:%s\n' "matches" "${length}"
 #  printf '  %s\n' "${unique_strings[$first]}"
   printf '  %s\n' "${monoline_strings[$key]}"
+
+  printf '%s\n' "${monoline_line_numbers[$key]}"
 
   printf '%s\n' "${unique_strings[@]:$first:$length}" | \
     awk -v fields="${monoline_field_nums[$key]}" \
