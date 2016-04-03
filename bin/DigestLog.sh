@@ -7,10 +7,8 @@
 # Created: 2015-06-30
 
 # TODO:
-#   first pass should save:
-#     unique strings
-#     count of each unique string
-#     line number list of each unique string
+#   find merge-able mono-line groups in first loop to avoid looping over groups
+#     multiple times (once per level of nested fields)
 #   coalesce monoline groups with multiline groups
 #   figure out sensible unique word output formatting
 #     try to collate columns of related fields
@@ -20,6 +18,7 @@
 #   formalize criterion for splitting between high-freq and low-freq lines
 
 # DONE:
+#   merge mono-line groups 
 #   handle literal '[' and ']' in log text (breaking regex match)
 #   calculate substring position for to split strings w/ parameter substitution
 #   fix match_string regex to handle internal words
@@ -250,54 +249,38 @@ done
 
 
 
-for key in "${!monoline_group_counts[@]}"; do 
-  printf '%s:%s\n' "key"   "${key}"
-  printf '%s:%s\n' "count" "${monoline_group_counts[$key]}"
-
-  first_length="${monoline_string_indcs[$key]}"
-  first="${first_length%%,*}"
-  length="${first_length##*,}"
-  printf '%s:%s\n' "matches" "${length}"
-#  printf '  %s\n' "${unique_strings[$first]}"
-  printf '  %s\n' "${monoline_strings[$key]}"
-
-  printf '%s\n' "${monoline_line_numbers[$key]}"
-
-#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-#    awk -v fields="${monoline_field_nums[$key]}" \
-#    'BEGIN { split(fields, f, ",") }
-#    { for (field in f) {print $f[field]} }' 
-done >> "${DIGEST_FILE}"
+#for key in "${!monoline_group_counts[@]}"; do 
+#  printf '%s:%s\n' "key"   "${key}"
+#  printf '%s:%s\n' "count" "${monoline_group_counts[$key]}"
+#
+#  first_length="${monoline_string_indcs[$key]}"
+#  first="${first_length%%,*}"
+#  length="${first_length##*,}"
+#  printf '%s:%s\n' "matches" "${length}"
+##  printf '  %s\n' "${unique_strings[$first]}"
+#  printf '  %s\n' "${monoline_strings[$key]}"
+#
+#  printf '%s\n' "${monoline_line_numbers[$key]}"
+#
+##  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+##    awk -v fields="${monoline_field_nums[$key]}" \
+##    'BEGIN { split(fields, f, ",") }
+##    { for (field in f) {print $f[field]} }' 
+#done >> "${DIGEST_FILE}"
 
 # loop again for mono-line groups until number of groups is static
 #   coalesce within monoline groups for additional words in diff 
 #   eg depth= 2, blah foo
 #      depth= 2, blah bar
 #      depth= 1, baz
-#   how to merge group info
-#     field nums
-#       should be superset of nums1, nums2
-#     string indices
-#       first is min(a,b); length is sum of lengths
-#     group counts
-#       should match
-#     match counts
-#       sum
-#     line numbers
-#       merge
-#     strings
-#       
 
-#     key, indices of unique strings in group
-#     key, count (number of identical lines)
-#     key, line numbers of each group in file
-#     key, field numbers (words) that differ within group
-#     key, string (words) that are the same within group
-declare -a merge_groups
+declare -a merge_group_keys
+declare -a merge_group_field_nums
+declare -a merge_group_match_strings
 mlg_key=0
 for ((i=1; i<="${#monoline_strings[@]}"; i++)); do 
   : $(( mlg_key++ ))
-  merge_groups[$mlg_key]="$i"
+  merge_group_keys[$mlg_key]="$i"
   j=$(($i + 1))
   count1="${monoline_group_counts[$i]}"
   count2="${monoline_group_counts[$j]}"
@@ -345,10 +328,13 @@ for ((i=1; i<="${#monoline_strings[@]}"; i++)); do
 
   # if current two strings have some matching words
   if [[ ${#diff_word_nums[@]} -ne ${#same_words[@]} ]]; then
+    printf -v merge_group_field_nums[$mlg_key] '%s,' "${diff_word_nums[@]}"
+    merge_group_field_nums[$mlg_key]="${merge_group_field_nums[$mlg_key]%,}"
+    merge_group_match_strings[$mlg_key]="${match_string}"
     for ((k=$j; k<${#monoline_strings[@]}; k++)); do
       if [[ "${monoline_strings[$k]}" =~ ${match_regex} ]]; then
         # merge groups
-        merge_groups[$mlg_key]+=",$k"
+        merge_group_keys[$mlg_key]+=",$k"
       else
         i=$(( k - 1 ))
         break
@@ -357,10 +343,100 @@ for ((i=1; i<="${#monoline_strings[@]}"; i++)); do
   fi
 done
 
-for group in "${!merge_groups[@]}"; do
+for group in "${!merge_group_keys[@]}"; do
   printf '%s:\n' "${group}"
-  printf '  %s\n' "${merge_groups[$group]}"
+  printf '  %s\n' "${merge_group_keys[$group]}"
 done
+
+# merge group info
+for group in "${!merge_group_field_nums[@]}"; do
+  printf '%s:%s\n' "group" "${group}"
+  printf '%s\n' "${merge_group_match_strings[$group]}"
+
+  # group count is the same as count of first key
+  first_key="${merge_group_keys[$group]%%,*}"
+  group_counts[$group]="${monoline_group_counts[$first_key]}"
+  # field nums is superset of inter- and intra-group field nums 
+  field_nums[$group]="${merge_group_field_nums[$group]}"
+  # first index is the first of all first indices in group
+  firsts[$group]=""
+  # length is the sum of all lengths in group
+  lengths[$group]=""
+  # line numbers is the union of all line numbers
+  line_numbers[$group]=""
+  for key in ${merge_group_keys[$group]//,/ }; do 
+    field_nums[$group]+=",${monoline_field_nums[$key]}"
+    first_length="${monoline_string_indcs[$key]}"
+    first="${first_length%%,*}"
+    length="${first_length##*,}"
+    firsts[$group]+=",${first}"
+    : $(( lengths[$group] += ${length} ))
+    line_numbers[$group]+=",${monoline_line_numbers[$key]}"
+  done
+  field_nums[$group]=$( printf '%s\n' ${field_nums[$group]//,/ } | \
+    sort -u | tr '\n' ',')
+  printf '%s\n' "${field_nums[@]}"
+  firsts[$group]=$( printf '%s\n' ${firsts[$group]//,/ } | \
+    sort -n | head -1)
+  string_indcs[$group]="${firsts[$group]},${lengths[$group]}"
+  printf '%s\n' "${string_indcs[$group]}"
+  line_numbers[$group]=$( printf '%s\n' ${line_numbers[$group]//,/ } | \
+    sort -n | tr '\n' ',')
+  printf '%s\n' "${line_numbers[$group]}"
+
+  # update mono-line group data
+  for key in ${merge_group_keys[$group]//,/ }; do 
+    unset monoline_string_indcs[$key]
+    unset monoline_group_counts[$key]
+    unset monoline_line_numbers[$key]
+    unset monoline_field_nums[$key]
+    unset monoline_strings[$key]
+  done
+  monoline_string_indcs[$group]="${string_indcs[$group]}"
+  monoline_group_counts[$group]="${group_counts[$group]}"
+  monoline_line_numbers[$group]="${line_numbers[$group]}"
+  monoline_field_nums[$group]="${field_nums[$group]}"
+  monoline_strings[$group]="${merge_group_match_strings[$group]}"
+
+  merge_group_keys[$group]="$first_key"
+done
+
+# update mono-line group keys
+for group in "${!merge_group_keys[@]}"; do 
+  key="${merge_group_keys[$group]}"
+  if [[ "${group}" != "${key}" ]]; then
+    monoline_string_indcs[$group]="${monoline_string_indcs[$key]}"
+    monoline_group_counts[$group]="${monoline_group_counts[$key]}"
+    monoline_line_numbers[$group]="${monoline_line_numbers[$key]}"
+    monoline_field_nums[$group]="${monoline_field_nums[$key]}"
+    monoline_strings[$group]="${monoline_strings[$key]}"
+    unset monoline_string_indcs[$key]
+    unset monoline_group_counts[$key]
+    unset monoline_line_numbers[$key]
+    unset monoline_field_nums[$key]
+    unset monoline_strings[$key]
+  fi
+done
+
+for key in "${!monoline_group_counts[@]}"; do 
+  printf '%s:%s\n' "key"   "${key}"
+  printf '%s:%s\n' "count" "${monoline_group_counts[$key]}"
+
+  first_length="${monoline_string_indcs[$key]}"
+  first="${first_length%%,*}"
+  length="${first_length##*,}"
+  printf '%s:%s\n' "matches" "${length}"
+#  printf '  %s\n' "${unique_strings[$first]}"
+  printf '  %s\n' "${monoline_strings[$key]}"
+
+  printf '%s\n' "${monoline_line_numbers[$key]}"
+
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_field_nums[$key]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
+done >> "${DIGEST_FILE}"
+
 
 # coalesce groups
 #   group by count/matches?
