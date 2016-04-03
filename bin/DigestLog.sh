@@ -142,14 +142,6 @@ for mlg_key in "${!multiline_string_indcs[@]}"; do
     tr '\n' ',')
 done
 
-## print all multi-line groups
-#for key in "${!multiline_groups[@]}"; do
-#  printf '%s:\n' "$key"
-#  for idx in ${multiline_groups[$key]//,/ }; do
-#    printf '  %s\n' "${unique_strings[$idx]}"
-#  done
-#done > "${DIGEST_FILE}"
-
 # print all multi-line group data
 for key in "${!multiline_group_counts[@]}"; do
   printf '%s:%s\n' "key"   "${key}"
@@ -256,19 +248,7 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
   : $((i += $length - 1 ))
 done
 
-#for string in "${!monoline_groups[@]}"; do 
-#  first_length="${monoline_groups[${string}]}"
-#  first="${first_length%%,*}"
-#  length="${first_length##*,}"
-#
-#  printf '%s:\n' "${length}"
-#  printf '  %s\n' "${string}"
-#  printf '%s\n' "${monoline_fields["${string}"]}"
-#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-#    awk -v fields="${monoline_fields["${string}"]}" \
-#    'BEGIN { split(fields, f, ",") }
-#    { for (field in f) {print $f[field]} }' 
-#done >> "${DIGEST_FILE}"
+
 
 for key in "${!monoline_group_counts[@]}"; do 
   printf '%s:%s\n' "key"   "${key}"
@@ -289,15 +269,103 @@ for key in "${!monoline_group_counts[@]}"; do
 #    { for (field in f) {print $f[field]} }' 
 done >> "${DIGEST_FILE}"
 
-# coalesce within monoline groups for additional words in diff (depth =2, =3, etc)
+# loop again for mono-line groups until number of groups is static
+#   coalesce within monoline groups for additional words in diff 
+#   eg depth= 2, blah foo
+#      depth= 2, blah bar
+#      depth= 1, baz
+#   how to merge group info
+#     field nums
+#       should be superset of nums1, nums2
+#     string indices
+#       first is min(a,b); length is sum of lengths
+#     group counts
+#       should match
+#     match counts
+#       sum
+#     line numbers
+#       merge
+#     strings
+#       
+
+#     key, indices of unique strings in group
+#     key, count (number of identical lines)
+#     key, line numbers of each group in file
+#     key, field numbers (words) that differ within group
+#     key, string (words) that are the same within group
+declare -a merge_groups
+mlg_key=0
+for ((i=1; i<="${#monoline_strings[@]}"; i++)); do 
+  : $(( mlg_key++ ))
+  merge_groups[$mlg_key]="$i"
+  j=$(($i + 1))
+  count1="${monoline_group_counts[$i]}"
+  count2="${monoline_group_counts[$j]}"
+  string1="${monoline_strings[$i]}"
+  string2="${monoline_strings[$j]}"
+#  printf '%s\n' "$i"
+  # sorting should put similar items near each other
+  # diff with next item in frequency class
+  read -a diff_output <<< $( diff \
+    <(printf '%s\n' ${string1} ) \
+    <(printf '%s\n' ${string2} ) )
+
+  # build array of fields/words that are different
+  diff_word_nums=()
+  for idx in "${!diff_output[@]}"; do 
+    # only match 'c'hanged words (ignore 'a'dded/'d'eleted)
+    if [[ "${diff_output[$idx]}" =~ $diff_regex ]]; then
+#      echo "${diff_output[$idx]}"
+      diff_span="${diff_output[$idx]%%c*}"
+      diff_first="${diff_span%%,*}"
+      diff_last="${diff_span##*,}"
+      # append each word number in diff span
+      for (( num=$diff_first ; num<=$diff_last ; num++ )); do
+        diff_word_nums+=($num)
+      done
+    fi
+  done
+
+  # construct new string without diff_words
+  same_words=()
+  IFS=' ' read -r -a same_words <<< ${string1}
+  word_regex="[^ ]+"
+  for num in ${diff_word_nums[@]}; do 
+  # words[$(( $num - 1 ))]='"[^ ]*"'
+    same_words[$(( $num - 1 ))]="${word_regex}"
+  done
+  # save as string to match against other unique lines
+  printf -v match_regex '%s ' ${same_words[@]}
+  # escape any literal '[' or ']' in regex
+  match_regex="${match_regex// \[ / \\[ }"
+  match_regex="${match_regex// \] / \\] }"
+  # remove trailing space
+  match_regex="${match_regex% }"
+  match_string="${match_regex//"$word_regex"/}"
+
+  # if current two strings have some matching words
+  if [[ ${#diff_word_nums[@]} -ne ${#same_words[@]} ]]; then
+    for ((k=$j; k<${#monoline_strings[@]}; k++)); do
+      if [[ "${monoline_strings[$k]}" =~ ${match_regex} ]]; then
+        # merge groups
+        merge_groups[$mlg_key]+=",$k"
+      else
+        i=$(( k - 1 ))
+        break
+      fi
+    done
+  fi
+done
+
+for group in "${!merge_groups[@]}"; do
+  printf '%s:\n' "${group}"
+  printf '  %s\n' "${merge_groups[$group]}"
+done
 
 # coalesce groups
 #   group by count/matches?
 #   get first index in string_indcs
 #   
-
-
-
 
 #   assemble unique values into digests
 
@@ -411,3 +479,26 @@ done >> "${DIGEST_FILE}"
 #   sort | uniq -c | sort -r
 
 # coalesce into tree based on frequency
+
+# old code
+## print all multi-line groups
+#for key in "${!multiline_groups[@]}"; do
+#  printf '%s:\n' "$key"
+#  for idx in ${multiline_groups[$key]//,/ }; do
+#    printf '  %s\n' "${unique_strings[$idx]}"
+#  done
+#done > "${DIGEST_FILE}"
+
+#for string in "${!monoline_groups[@]}"; do 
+#  first_length="${monoline_groups[${string}]}"
+#  first="${first_length%%,*}"
+#  length="${first_length##*,}"
+#
+#  printf '%s:\n' "${length}"
+#  printf '  %s\n' "${string}"
+#  printf '%s\n' "${monoline_fields["${string}"]}"
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_fields["${string}"]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
+#done >> "${DIGEST_FILE}"
