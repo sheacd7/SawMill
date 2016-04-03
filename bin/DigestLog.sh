@@ -283,18 +283,21 @@ for key in "${!monoline_group_counts[@]}"; do
 
   printf '%s\n' "${monoline_line_numbers[$key]}"
 
-  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
-    awk -v fields="${monoline_field_nums[$key]}" \
-    'BEGIN { split(fields, f, ",") }
-    { for (field in f) {print $f[field]} }' 
+#  printf '%s\n' "${unique_strings[@]:$first:$length}" | \
+#    awk -v fields="${monoline_field_nums[$key]}" \
+#    'BEGIN { split(fields, f, ",") }
+#    { for (field in f) {print $f[field]} }' 
 done >> "${DIGEST_FILE}"
 
+# coalesce within monoline groups for additional words in diff (depth =2, =3, etc)
 
-# print each high-frequency group
-# printf '%s\n' "${words}" # group template with placeholders for uniq words
-# printf '%s\n' "${uniques[@]:start:length}" | awk '{print $a $b $c...}'
+# coalesce groups
+#   group by count/matches?
+#   get first index in string_indcs
+#   
 
-#   coalesce groups that match except for these fields/words
+
+
 
 #   assemble unique values into digests
 
