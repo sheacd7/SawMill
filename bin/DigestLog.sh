@@ -56,6 +56,12 @@ fi
 
 # functions
 diff_regex='^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$'
+word_regex="[^ ]+"
+# applies diff to two strings
+# outputs (to global namespace):
+#   diff_word_nums - array of words/fields that differ between strings
+#   match_regex    - a regex pattern that will match both strings
+#   match_string   - a string consisting of only the words in both strings
 function diff_strings {
   string1=${1}
   string2=${2}
@@ -84,7 +90,6 @@ function diff_strings {
   # construct new string without diff_words
   same_words=()
   IFS=' ' read -r -a same_words <<< ${string1}
-  word_regex="[^ ]+"
   for num in ${diff_word_nums[@]}; do 
   # words[$(( $num - 1 ))]='"[^ ]*"'
     same_words[$(( $num - 1 ))]="${word_regex}"
@@ -227,7 +232,7 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
         fi
       fi
     done
-  # else these strings comprise separate groups
+  # else these strings comprise separate groups (no matching words)
   else
     match_regex="${unique_strings[$i]}"
     match_string="${unique_strings[$i]}"
@@ -247,6 +252,7 @@ for ((i=39; i<${#unique_strings[@]}; i++)); do
   : $((i += $length - 1 ))
 done
 
+# print all data for mono-line groups
 for key in "${!monoline_group_counts[@]}"; do 
   printf '%s:%s\n' "key"   "${key}"
   printf '%s:%s\n' "count" "${monoline_group_counts[$key]}"
