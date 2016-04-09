@@ -54,7 +54,7 @@ if [[ ! -f "${TEMP_FILE}" ]]; then
   sed '/^$/d' "${LOG_FILE}" > "${TEMP_FILE}"
 fi
 
-# functions
+# functions ====================================================================
 diff_regex='^[0-9]{1,}[,0-9]{0,}c[0-9]{1,}[,0-9]{0,}$'
 word_regex="[^ ]+"
 # applies diff to two strings
@@ -104,6 +104,7 @@ function diff_strings {
   match_string="${match_regex//"$word_regex"/}"
 }
 
+# main =========================================================================
 
 # assemble multi-line structure of each message from frequency analysis
 # high skewness in frequency distribution: few v.high freq items, many unique
@@ -274,11 +275,68 @@ done >> "${DIGEST_FILE}"
 
 
 # coalesce groups
-#   group by count/matches?
-#   get first index in string_indcs
-#   
+#   sort by count/matches, descending
+#   if more than 1 per count/match number
+#     get interval distribution
+#       1135  1
+#          8  3
+#     try to match 
+#       interval == 1 - adjacent and therefore part of stanza group
+#       interval >  1 - try to find intervening group that could fit
+#         from length and count
+#   get distribution of intervals between line numbers
+#        874 21
+#        242  2
+#         20 18
+#          3 19
+#          3 17
+#   try to match interval frequencies to counts/matches of groups
+#  for i in {0..1141}; do 
+#    a=${lines[$((i+1))]}
+#    b=${lines[$i]}
+#    echo $(( a - b))
+#  done | sort | uniq -c
+#      874 22   ~ 875
+#      234 3    ~ 233
+#       20 19   =  20
+#        8 5    =   8
+#        3 18   =   3
+#        3 20   =   3
 
-#   assemble unique values into digests
+#      870 22   ~ 875
+#      239 3    ~ 233
+#       20 19   =  20
+#        4 24   ~  20
+#        3 5    =   3
+#        3 20   =   3
+#        3 18   =   3
+
+# key, count, matches, lines
+#   1,     3,       1,     7    at org.dspace.app.util.AuthorizeUtil
+#   2,     3,       1,     6    at java.util.zip.ZipFile.open(Native Method)
+#   3,     6,       1,     1  org.dspace.authorize.AuthorizeException:
+#   4,     6,       1,     1  java.util.zip.ZipException: error in opening zip file
+#   5,     8,       1,     2  Destination Parents: _ Owner: 10822.1/0
+#   6,    20,       1,     4    at org.dspace.content.Item.adjustItemPolicies
+#   7,    40,       1,     1  java.sql.SQLException: Collection 5
+#   8,   875,       1,     3    at org.dspace.identifier.VersionHandle .register
+#   9,   875,       1,     3    at org.dspace.identifier.VersionHandle .createNew
+#  10,   895,       1,     2    at org.dspace.content.packager.PackgerUtils.
+#  11,   898,       1,     1    at org.dspace.content.packager.AbstractMETSIn
+#  12,   901,       1,     8    at org.dspace.app.packager.Packager.ingest(:565)
+#   5,     1,    1143,     1  Ingesting package located at _
+#   7,     1,    1143,     1  depth= _
+#   8,     1,     875,     1  Caused by: java.lang.IllegalStateException: 
+#   1,     2,     875,     1  java.lang.RuntimeException: Error while Item id: _
+#   3,     1,     233,     1  SKIPPED processing package _ as an Object already
+#   4,     1,       9,     1  RESTORED DSpace ITEM [ _ _ ]
+#   2,     1,       1,     1
+#   6,     1,       1,     1
+#   9,     1,       1,     1
+
+#  901 = 875 +  20 +   6
+#  898 = 875 +  20 +   3
+#  895 = 875 +  20
 
 # ==============================================================================
 # Open questions
